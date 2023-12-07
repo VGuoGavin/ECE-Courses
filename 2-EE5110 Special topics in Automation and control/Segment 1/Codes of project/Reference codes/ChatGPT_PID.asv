@@ -1,0 +1,54 @@
+clc;
+clear;
+
+Ts = 0.001;  %采样时间=0.001s
+sys = tf([0,300,200,350],[1,0.5,0.05,0]);   %建立被控对象传递函数 无零点  极点为-10
+dsys = c2d(sys,Ts,'z');      %将传递函数离散化 采样周期Ts
+[num,den] = tfdata(dsys,'v');   %取出离散化后的传递函数参数
+
+Error = 0;  %当前偏差
+ErrorLast = 0; %上次偏差
+ErrorSum = 0;       %累积偏差
+u_1 = 0;    %上时刻控制量
+u_2 = 0;    %上上时刻控制量
+u_3 = 0;    %上上上时刻控制量
+y_1 = 0;    %上时刻输出量
+y_2 = 0;    %上上时刻输出量
+y_3 = 0;    %上上上时刻输出量
+y_4 = 0;    %上上上上时刻输出量
+%PID参数
+Kp = 1;    
+Ki = 0.1;
+Kd = 0.1;
+u = zeros(1,1000);%预先分配内存
+y = zeros(1,1000);
+Target = zeros(1,1000);   %目标值
+time = zeros(1,1000);%时刻点（设定1000个）
+for k = 1:1:1000
+    time(k) = k * Ts;   %时间参数
+    Target(k) = 1000;
+    y(k) = num(4)*u_3 + num(3)*u_2 + num(2)*u_1 - den(4)*y_3 - den(3)*y_2 - den(2)*y_1;%系统响应输出序列      
+    Error = Target(k) - y(k);   %误差信号 
+    u(k) = Kp*Error + Ki*ErrorSum + Kd*(Error - ErrorLast); %系统PID控制器输出序列      
+    ErrorSum = ErrorSum + Error;    %误差的累加和 
+    u_3 = u_2;
+    u_2 = u_1;
+    u_1 = u(k);    	        %前一个的控制器输出值
+    y_4 = y_3;
+    y_3 = y_2;
+    y_2 = y_1;
+    y_1 = y(k);    	        %前一个的系统响应输出值
+    ErrorLast = Error;		%前一个误差信号的值
+end
+
+
+
+%（仅绘制过渡过程的曲线，x坐标限制为[0,1]）
+p1=plot(time,Target,'-.');xlim([0,0.5]);hold on;%指令信号的曲线（即期望输入）
+p2=plot(time,y);xlim([0,0.5]);hold on;%不含积分分离的PID曲线
+
+
+
+sysSrc = tf(1,[1,1])
+sysZ = c2d(sysSrc,0.001,'z')
+rever = d2c(sysZ)
